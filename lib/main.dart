@@ -1,5 +1,6 @@
 import 'package:beansocial/anaSayfa.dart';
 import 'package:beansocial/anketSayfa.dart';
+import 'package:beansocial/controllers/coffee_recipe_controller.dart';
 import 'package:beansocial/hakkimizda.dart';
 import 'package:beansocial/kahveler.dart';
 import 'package:beansocial/login.dart';
@@ -10,11 +11,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
+  Get.put(CoffeeRecipeController());
   runApp(const MyApp());
 }
 

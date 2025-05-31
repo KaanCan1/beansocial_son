@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:beansocial/footerr.dart';
-import 'package:beansocial/giris_kontrol.dart';
+import 'package:beansocial/services/auth_service.dart';
 import 'package:flutter/foundation.dart'; // Import kIsWeb
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,6 +13,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'header.dart';
+import 'screens/my_recipes_screen.dart';
 
 class ProfilePage extends StatefulWidget {
   final String userName;
@@ -23,13 +24,14 @@ class ProfilePage extends StatefulWidget {
   _ProfilePageState createState() => _ProfilePageState();
 }
 
-enum MenuOption { updateInfo, myCoffees, myRecipes, logout }
+enum MenuOption { updateInfo, myCoffees, myRecipes, myFavorites, logout }
 
 class _ProfilePageState extends State<ProfilePage> {
   MenuOption _selected = MenuOption.updateInfo;
   String? _profileImageUrl;
   String? _userName;
   bool _isLoading = true;
+  String? _userId;
 
   String get _baseUrl {
     if (kIsWeb) {
@@ -91,20 +93,30 @@ class _ProfilePageState extends State<ProfilePage> {
                                     children: [
                                       Stack(
                                         children: [
-                                          CircleAvatar(
-                                            radius: 50,
-                                            backgroundColor: Colors.grey[200],
-                                            backgroundImage:
-                                                _profileImageUrl != null
-                                                    ? NetworkImage(
-                                                        _profileImageUrl!)
-                                                    : null,
-                                            child: _profileImageUrl == null
-                                                ? Icon(Icons.person,
-                                                    size: 50,
-                                                    color: Colors.brown[400])
-                                                : null,
-                                          ),
+                                          _profileImageUrl != null
+                                              ? ClipOval(
+                                                  child: Image.network(
+                                                    _profileImageUrl!,
+                                                    width: 100,
+                                                    height: 100,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (context,
+                                                            error,
+                                                            stackTrace) =>
+                                                        Icon(Icons.person,
+                                                            size: 50,
+                                                            color: Colors
+                                                                .brown[400]),
+                                                  ),
+                                                )
+                                              : CircleAvatar(
+                                                  radius: 50,
+                                                  backgroundColor:
+                                                      Colors.grey[200],
+                                                  child: Icon(Icons.person,
+                                                      size: 50,
+                                                      color: Colors.brown[400]),
+                                                ),
                                           Positioned(
                                             bottom: 0,
                                             right: 0,
@@ -154,10 +166,12 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                                 _buildMenuItem(Icons.edit, 'Bilgileri Güncelle',
                                     MenuOption.updateInfo),
-                                _buildMenuItem(Icons.local_cafe, 'Kahvelerim',
-                                    MenuOption.myCoffees),
                                 _buildMenuItem(Icons.receipt_long, 'Tariflerim',
                                     MenuOption.myRecipes),
+                                _buildMenuItem(
+                                    Icons.favorite,
+                                    'Favori Kahvelerim',
+                                    MenuOption.myFavorites),
                                 const SizedBox(height: 16),
                                 _buildMenuItem(Icons.logout, 'Çıkış Yap',
                                     MenuOption.logout,
@@ -244,7 +258,15 @@ class _ProfilePageState extends State<ProfilePage> {
       case MenuOption.myCoffees:
         return const MyCoffeesSection();
       case MenuOption.myRecipes:
-        return const MyRecipesSection();
+        if (_isLoading || _userId == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return SizedBox(
+          height: 600,
+          child: MyRecipesScreen(userId: _userId),
+        );
+      case MenuOption.myFavorites:
+        return const FavoriteCoffeesSection();
       case MenuOption.logout:
         return Center(
           child: Column(
@@ -322,6 +344,7 @@ class _ProfilePageState extends State<ProfilePage> {
         }
 
         setState(() {
+          _userId = userId;
           _userName = userData['name'] ?? '';
           _profileImageUrl = userData['profileImage'] != null
               ? '$_baseUrl${userData['profileImage']}'
@@ -358,6 +381,7 @@ class _UpdateInfoSectionState extends State<UpdateInfoSection> {
   String? _userId;
   String? _profileImageUrl;
   XFile? _selectedXFile; // Use XFile to be compatible with web
+  Uint8List? _selectedImageBytes;
   final _picker = ImagePicker();
 
   String get _baseUrl {
@@ -382,36 +406,110 @@ class _UpdateInfoSectionState extends State<UpdateInfoSection> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    print('[_pickImage] Fotoğraf seçme işlemi başlatılıyor...');
+  Widget _buildProfileAvatar() {
+    return Stack(
+      children: [
+        CircleAvatar(
+          radius: 60,
+          backgroundColor: Colors.grey[200],
+          backgroundImage: _selectedImageBytes != null
+              ? MemoryImage(_selectedImageBytes!)
+              : (_selectedXFile != null && !kIsWeb
+                  ? FileImage(File(_selectedXFile!.path)) as ImageProvider
+                  : (_profileImageUrl != null
+                      ? NetworkImage(_profileImageUrl!)
+                      : null)),
+          child: (_profileImageUrl == null &&
+                  _selectedXFile == null &&
+                  _selectedImageBytes == null)
+              ? Icon(Icons.person, size: 60, color: Colors.brown[400])
+              : null,
+        ),
+        Positioned(
+          bottom: 0,
+          right: 0,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.brown[700],
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.camera_alt, color: Colors.white),
+              onPressed: _showImageSourceActionSheet,
+            ),
+          ),
+        ),
+        if (_isLoading)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.3),
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.brown),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _showImageSourceActionSheet() async {
+    if (kIsWeb) {
+      await _pickImage(ImageSource.gallery);
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Galeriden Seç'),
+              onTap: () async {
+                Navigator.pop(context);
+                await _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Kamera ile Çek'),
+              onTap: () async {
+                Navigator.pop(context);
+                await _pickImage(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    setState(() => _isLoading = true);
     try {
       final pickedFile = await _picker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         maxWidth: 800,
         maxHeight: 800,
         imageQuality: 85,
       );
-
       if (pickedFile != null) {
-        print(
-            '[_pickImage] Bir dosya seçildi: ${pickedFile.name}, Tipi: ${pickedFile.mimeType}');
+        Uint8List? imageBytes;
+        if (kIsWeb) {
+          imageBytes = await pickedFile.readAsBytes();
+        }
         setState(() {
           _selectedXFile = pickedFile;
+          _selectedImageBytes = imageBytes;
         });
-        // Dosya seçildikten sonra yükleme işlemini başlat
         await _uploadImage();
-      } else {
-        print('[_pickImage] Dosya seçimi iptal edildi.');
       }
-    } catch (e, stackTrace) {
-      print('[_pickImage] Fotoğraf seçilirken bir hata oluştu: $e');
-      print('[_pickImage] Stack trace: $stackTrace');
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Fotoğraf seçilirken hata oluştu: ${e.toString()}')),
+        SnackBar(content: Text('Fotoğraf seçilemedi: $e')),
       );
-      setState(
-          () => _isLoading = false); // Hata durumunda yükleme durumunu kapat
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -685,34 +783,7 @@ class _UpdateInfoSectionState extends State<UpdateInfoSection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
-            child: Stack(
-              children: [
-                CircleAvatar(
-                  radius: 60,
-                  backgroundColor: Colors.grey[200],
-                  backgroundImage: _profileImageUrl != null
-                      ? NetworkImage(_profileImageUrl!)
-                      : null,
-                  child: _profileImageUrl == null
-                      ? Icon(Icons.person, size: 60, color: Colors.brown[400])
-                      : null,
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.brown[700],
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.camera_alt, color: Colors.white),
-                      onPressed: _pickImage,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            child: _buildProfileAvatar(),
           ),
           const SizedBox(height: 24),
           Text('Bilgileri Güncelle',
@@ -826,90 +897,120 @@ class MyCoffeesSection extends StatelessWidget {
   }
 }
 
-class MyRecipesSection extends StatelessWidget {
-  const MyRecipesSection({super.key});
+class FavoriteCoffeesSection extends StatefulWidget {
+  const FavoriteCoffeesSection({super.key});
+
+  @override
+  State<FavoriteCoffeesSection> createState() => _FavoriteCoffeesSectionState();
+}
+
+class _FavoriteCoffeesSectionState extends State<FavoriteCoffeesSection> {
+  List<String> favoriTitles = [];
+  List<Map<String, dynamic>> coffeeProducts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final favList = prefs.getStringList('favoriKahve') ?? [];
+    setState(() {
+      favoriTitles = favList;
+      coffeeProducts = _getCoffeeProducts();
+    });
+  }
+
+  Future<void> _removeFavorite(String title) async {
+    final prefs = await SharedPreferences.getInstance();
+    final favList = prefs.getStringList('favoriKahve') ?? [];
+    favList.remove(title);
+    await prefs.setStringList('favoriKahve', favList);
+    _loadFavorites();
+  }
+
+  List<Map<String, dynamic>> _getCoffeeProducts() {
+    // Aynı ürünler kahveler.dart ile uyumlu olmalı
+    return [
+      {
+        'title': '»Kitale Kenya«',
+        'subtitle': 'Rarität Kahve',
+        'notes': 'Kırmızı Frenk Üzümü ve Bal',
+        'imagePath': 'assets/coffee_images/kitale_kenya.jpg',
+        'story':
+            "Kenya'nın verimli topraklarında yetişen Kitale Kenya, meyvemsi dokusuyla kahve tutkunlarının gözdesidir. El işçiliğiyle toplanan çekirdekler, titizlikle işlenerek sizlere sunulmaktadır.",
+      },
+      {
+        'title': 'Colombia Supremo',
+        'subtitle': 'Premium Kahve',
+        'notes': 'Meyvemsi ve Fındıksı Notlar',
+        'imagePath': 'assets/coffee_images/kitale_kenya.jpg',
+        'story':
+            "Kolombiya'nın yüksek dağlarından gelen Supremo, dengeli asiditesi ve zengin aromasıyla ideal bir günlük kahvedir. Her yudumda And dağlarının ferahlığını hissedin.",
+      },
+      {
+        'title': 'Ethiopian Yirgacheffe',
+        'subtitle': 'Specialty Kahve',
+        'notes': 'Çiçeksi ve Turunçgil Notları',
+        'imagePath': 'assets/coffee_images/kitale_kenya.jpg',
+        'story':
+            "Etiyopya'nın Yirgacheffe bölgesinden gelen bu kahve, çiçeksi aromaları ve canlı turunçgil notalarıyla öne çıkıyor. İnce işçilikle hazırlanan çekirdekler, eşsiz bir tat deneyimi sunuyor.",
+      },
+      {
+        'title': 'Brazilian Santos',
+        'subtitle': 'Classic Kahve',
+        'notes': 'Fındıksı ve Çikolata Notları',
+        'imagePath': 'assets/coffee_images/kitale_kenya.jpg',
+        'story':
+            "Brezilya'nın Santos bölgesinden gelen bu kahve, yumuşak içimi ve klasik lezzetiyle kahve severlere keyifli anlar sunuyor. Dengeli yapısı ve aromatik dokusu ile öne çıkıyor.",
+      },
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.receipt_long, color: Colors.brown[700], size: 28),
-            const SizedBox(width: 12),
-            Text(
-              'Tariflerim',
-              style: GoogleFonts.nunito(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.brown[800],
-              ),
+    final favoriKahveler =
+        coffeeProducts.where((c) => favoriTitles.contains(c['title'])).toList();
+    if (favoriKahveler.isEmpty) {
+      return const Center(
+        child:
+            Text('Henüz favori kahveniz yok.', style: TextStyle(fontSize: 18)),
+      );
+    }
+    return ListView.builder(
+      shrinkWrap: true,
+      itemCount: favoriKahveler.length,
+      itemBuilder: (context, index) {
+        final coffee = favoriKahveler[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+          child: ListTile(
+            leading: Image.asset(coffee['imagePath'],
+                width: 50, height: 50, fit: BoxFit.cover),
+            title: Text(coffee['title'],
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(coffee['subtitle']),
+                const SizedBox(height: 4),
+                Text(coffee['notes'], style: const TextStyle(fontSize: 12)),
+                const SizedBox(height: 4),
+                Text(coffee['story'],
+                    style:
+                        const TextStyle(fontSize: 11, color: Colors.black54)),
+              ],
             ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        Expanded(
-          child: ListView.separated(
-            itemCount: 3, // Örnek veri
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (ctx, i) => Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.brown[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.receipt_long,
-                      color: Colors.brown[700], size: 24),
-                ),
-                title: Text(
-                  [
-                    'Vanilla Latte Tarifi',
-                    'Mocha Tarifi',
-                    'Cold Brew Tarifi'
-                  ][i],
-                  style: GoogleFonts.nunito(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                subtitle: Text(
-                  'Oluşturulma: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                  style: GoogleFonts.nunito(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined,
-                          color: Colors.blueAccent),
-                      onPressed: () {},
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.redAccent),
-                      onPressed: () {},
-                    ),
-                  ],
-                ),
-              ),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              tooltip: 'Favoriden Sil',
+              onPressed: () => _removeFavorite(coffee['title']),
             ),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

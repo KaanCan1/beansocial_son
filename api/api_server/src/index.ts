@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import express from "express";
 import path from "path";
 import authRoutes from "./auth.routes";
+import recipeRoutes from "./recipes.routes";
 
 dotenv.config();
 
@@ -19,7 +20,7 @@ app.use(express.json());
 
 // Serve static files from the uploads directory
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
-
+app.use("/api/recipes", recipeRoutes);
 app.use("/api/auth", authRoutes);
 
 app.get("/", (req, res) => {

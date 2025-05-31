@@ -41,7 +41,7 @@ class Header extends StatelessWidget {
   Widget _logoSection(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        Navigator.pushReplacementNamed(context, '/AnaSayfa');
+        Navigator.pushReplacementNamed(context, '/');
       },
       child: Row(
         children: [
@@ -89,7 +89,7 @@ class Header extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _headerButton(context, 'Ana Sayfa', '/AnaSayfa'),
+        _headerButton(context, 'Ana Sayfa', '/'),
         _headerButton(context, 'Anketler', '/anketSayfa'),
         _headerButton(context, 'Kahveler', '/kahveler'),
         _headerButton(context, 'SSS', '/sss'),

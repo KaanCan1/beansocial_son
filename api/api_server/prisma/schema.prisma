@@ -25,6 +25,7 @@ model User {
   likes        Like[]
   followers    Follow[]   @relation("following")
   following    Follow[]   @relation("followers")
+  coffeeRecipes CoffeeRecipe[]
 }
 
 model Post {
@@ -70,4 +71,17 @@ model Follow {
   createdAt   DateTime @default(now())
 
   @@unique([followerId, followingId])
+}
+
+model CoffeeRecipe {
+  id          String   @id @default(uuid())
+  name        String
+  type        String
+  description String
+  parameters  Json
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  author      User     @relation(fields: [authorId], references: [id])
+  authorId    String
 } 

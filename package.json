@@ -1,0 +1,39 @@
+{
+  "name": "beansocial",
+  "version": "1.0.0",
+  "description": "A new Flutter project.",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "buffer-equal-constant-time": "^1.0.1",
+    "ecdsa-sig-formatter": "^1.0.11",
+    "jsonwebtoken": "^9.0.2",
+    "jwa": "^1.4.2",
+    "jws": "^3.2.2",
+    "lodash.includes": "^4.3.0",
+    "lodash.isboolean": "^3.0.3",
+    "lodash.isinteger": "^4.0.4",
+    "lodash.isnumber": "^3.0.3",
+    "lodash.isplainobject": "^4.0.6",
+    "lodash.isstring": "^4.0.1",
+    "lodash.once": "^4.1.1",
+    "ms": "^2.1.3",
+    "safe-buffer": "^5.2.1",
+    "semver": "^7.7.2"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.18",
+    "@types/express": "^5.0.2"
+  }
+}

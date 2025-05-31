@@ -1,6 +1,7 @@
 import 'package:beansocial/footerr.dart';
 import 'package:beansocial/header.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CoffeeProduct {
   final String title;
@@ -28,9 +29,14 @@ class CoffeeProduct {
   });
 }
 
-class Kahveler extends StatelessWidget {
+class Kahveler extends StatefulWidget {
   const Kahveler({super.key});
 
+  @override
+  State<Kahveler> createState() => _KahvelerState();
+}
+
+class _KahvelerState extends State<Kahveler> {
   final List<CoffeeProduct> coffeeProducts = const [
     CoffeeProduct(
       title: '»Kitale Kenya«',
@@ -43,7 +49,7 @@ class Kahveler extends StatelessWidget {
       pricePerKg: 1399.60,
       imagePath: 'assets/coffee_images/kitale_kenya.jpg',
       story:
-          'Kenya’nın verimli topraklarında yetişen Kitale Kenya, meyvemsi dokusuyla kahve tutkunlarının gözdesidir. El işçiliğiyle toplanan çekirdekler, titizlikle işlenerek sizlere sunulmaktadır.',
+          "Kenya'nın verimli topraklarında yetişen Kitale Kenya, meyvemsi dokusuyla kahve tutkunlarının gözdesidir. El işçiliğiyle toplanan çekirdekler, titizlikle işlenerek sizlere sunulmaktadır.",
     ),
     CoffeeProduct(
       title: 'Colombia Supremo',
@@ -52,11 +58,11 @@ class Kahveler extends StatelessWidget {
       intensity: 3.5,
       roast: 2.5,
       weight: '250 g Çekirdek Kahve',
-      price: 299.90,
-      pricePerKg: 1199.60,
-      imagePath: 'assets/coffee_images/kitale_kenya.jpg',
+      price: 600,
+      pricePerKg: 2400,
+      imagePath: 'assets/coffee_images/kahve1.jpg',
       story:
-          'Kolombiya’nın yüksek dağlarından gelen Supremo, dengeli asiditesi ve zengin aromasıyla ideal bir günlük kahvedir. Her yudumda And dağlarının ferahlığını hissedin.',
+          "Kolombiya'nın yüksek dağlarından gelen Supremo, dengeli asiditesi ve zengin aromasıyla ideal bir günlük kahvedir. Her yudumda And dağlarının ferahlığını hissedin.",
     ),
     CoffeeProduct(
       title: 'Ethiopian Yirgacheffe',
@@ -67,9 +73,9 @@ class Kahveler extends StatelessWidget {
       weight: '250 g Çekirdek Kahve',
       price: 319.90,
       pricePerKg: 1279.60,
-      imagePath: 'assets/coffee_images/kitale_kenya.jpg',
+      imagePath: 'assets/coffee_images/kahve2.jpg',
       story:
-          'Etiyopya’nın Yirgacheffe bölgesinden gelen bu kahve, çiçeksi aromaları ve canlı turunçgil notalarıyla öne çıkıyor. İnce işçilikle hazırlanan çekirdekler, eşsiz bir tat deneyimi sunuyor.',
+          "Etiyopya'nın Yirgacheffe bölgesinden gelen bu kahve, çiçeksi aromaları ve canlı turunçgil notalarıyla öne çıkıyor. İnce işçilikle hazırlanan çekirdekler, eşsiz bir tat deneyimi sunuyor.",
     ),
     CoffeeProduct(
       title: 'Brazilian Santos',
@@ -78,13 +84,47 @@ class Kahveler extends StatelessWidget {
       intensity: 3.0,
       roast: 2.5,
       weight: '250 g Çekirdek Kahve',
-      price: 279.90,
-      pricePerKg: 1119.60,
-      imagePath: 'assets/coffee_images/kitale_kenya.jpg',
+      price: 350,
+      pricePerKg: 1400,
+      imagePath: 'assets/coffee_images/kahve3.jpeg',
       story:
-          'Brezilya’nın Santos bölgesinden gelen bu kahve, yumuşak içimi ve klasik lezzetiyle kahve severlere keyifli anlar sunuyor. Dengeli yapısı ve aromatik dokusu ile öne çıkıyor.',
+          "Brezilya'nın Santos bölgesinden gelen bu kahve, yumuşak içimi ve klasik lezzetiyle kahve severlere keyifli anlar sunuyor. Dengeli yapısı ve aromatik dokusu ile öne çıkıyor.",
     ),
   ];
+
+  List<String> favoriTitles = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final favList = prefs.getStringList('favoriKahve') ?? [];
+    setState(() {
+      favoriTitles = favList;
+    });
+  }
+
+  Future<void> _toggleFavorite(CoffeeProduct product) async {
+    final prefs = await SharedPreferences.getInstance();
+    final favList = prefs.getStringList('favoriKahve') ?? [];
+    if (favList.contains(product.title)) {
+      favList.remove(product.title);
+    } else {
+      favList.add(product.title);
+    }
+    await prefs.setStringList('favoriKahve', favList);
+    setState(() {
+      favoriTitles = favList;
+    });
+  }
+
+  CoffeeProduct? _findProductByTitle(String title) {
+    return coffeeProducts.firstWhereOrNull((p) => p.title == title);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +160,7 @@ class Kahveler extends StatelessWidget {
               ),
               itemBuilder: (context, index) {
                 final product = coffeeProducts[index];
+                final isFavorite = favoriTitles.contains(product.title);
                 return InkWell(
                   onTap: () {
                     showDialog(
@@ -399,6 +440,15 @@ class Kahveler extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
+                        IconButton(
+                          icon: Icon(
+                            isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: isFavorite ? Colors.red : Colors.grey,
+                          ),
+                          tooltip:
+                              isFavorite ? 'Favoriden Çıkar' : 'Favoriye Ekle',
+                          onPressed: () => _toggleFavorite(product),
+                        ),
                       ],
                     ),
                   ),
@@ -459,5 +509,14 @@ class Kahveler extends StatelessWidget {
         content,
       ],
     );
+  }
+}
+
+extension FirstWhereOrNullExtension<E> on Iterable<E> {
+  E? firstWhereOrNull(bool Function(E) test) {
+    for (var element in this) {
+      if (test(element)) return element;
+    }
+    return null;
   }
 }
